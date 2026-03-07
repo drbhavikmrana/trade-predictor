@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSE Trade Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0c10; --surface:#111318; --surface2:#171b23; --border:#1e2330;
+  --accent:#f0c040; --accent2:#3de8a0; --accent3:#e05a5a; --accent4:#5a9cf0;
+  --text:#e8eaf0; --muted:#555e78;
+  --mono:'Space Mono',monospace; --sans:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(240,192,64,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(240,192,64,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:24px;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 28px;background:var(--surface);border:1px solid var(--border);border-radius:16px;margin-bottom:20px;position:relative;overflow:hidden;}
+header::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent4));}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-text{font-size:20px;font-weight:800;letter-spacing:-0.5px;}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:12px;}
+#live-time{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.mkt-badge{display:flex;align-items:center;gap:8px;border-radius:8px;padding:8px 14px;font-family:var(--mono);font-size:11px;border:1px solid;}
+.mkt-badge.open{background:rgba(61,232,160,0.08);border-color:rgba(61,232,160,0.2);color:var(--accent2);}
+.mkt-badge.closed{background:rgba(90,90,90,0.08);border-color:rgba(90,90,90,0.2);color:var(--muted);}
+.pulse{width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite;}
+.pulse.green{background:var(--accent2);}
+.pulse.grey{background:var(--muted);}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+
+/* API STATUS BAR */
+.api-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(61,232,160,0.05);border:1px solid rgba(61,232,160,0.15);border-radius:12px;padding:12px 18px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.api-bar b{color:var(--accent2);}
+.api-bar .tag{background:rgba(61,232,160,0.12);border:1px solid rgba(61,232,160,0.2);color:var(--accent2);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;}
+
+/* AUTOCOMPLETE */
+.autocomplete-wrap { position:relative; flex:1; }
+.suggestions {
+  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:999;
+  background:var(--surface); border:1px solid var(--accent);
+  border-radius:12px; max-height:220px; overflow-y:auto;
+  display:none; box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+.suggestions.show { display:block; }
+.suggestion-item {
+  padding:10px 18px; cursor:pointer;
+  font-family:var(--mono); font-size:12px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); transition:background 0.1s;
+}
+.suggestion-item:last-child { border-bottom:none; }
+.suggestion-item:hover, .suggestion-item.active { background:rgba(240,192,64,0.08); }
+.sug-ticker { font-weight:700; color:var(--accent); }
+.sug-tag { font-size:10px; color:var(--muted); background:var(--surface2); border-radius:4px; padding:2px 7px; }
+
+/* TICKER INPUT */
+.ticker-row{display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:14px;}
+.input-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;transition:border-color 0.2s;}
+.input-wrap:focus-within{border-color:var(--accent);}
+.input-wrap label{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+.input-wrap input{background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:18px;font-weight:700;width:100%;letter-spacing:2px;text-transform:uppercase;}
+.input-wrap input::placeholder{color:var(--muted);font-weight:400;letter-spacing:1px;}
+.autocomplete-wrap{flex:1;position:relative;}
+.analyze-btn{background:var(--accent);color:#000;border:none;cursor:pointer;border-radius:12px;padding:0 32px;font-family:var(--sans);font-size:15px;font-weight:800;transition:all 0.2s;display:flex;align-items:center;gap:8px;min-height:60px;}
+.analyze-btn:hover{background:#f5d060;transform:translateY(-1px);}
+.analyze-btn:active{transform:translateY(0);opacity:0.9;}
+.analyze-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+
+/* QUICK PICKS */
+.quick-picks{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.quick-picks .qlabel{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.15s;color:var(--text);}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:rgba(240,192,64,0.06);}
+
+/* ERROR */
+.error-msg{display:none;background:rgba(224,90,90,0.1);border:1px solid rgba(224,90,90,0.3);border-radius:10px;padding:14px 18px;margin-bottom:14px;color:var(--accent3);font-family:var(--mono);font-size:12px;}
+.error-msg.show{display:block;}
+
+/* LOADING */
+.loading{display:none;text-align:center;padding:40px;font-family:var(--mono);color:var(--muted);font-size:12px;}
+.loading.show{display:block;}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;margin:0 auto 14px;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SIGNAL CARD */
+.signal-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px;display:none;animation:fadeUp 0.35s ease;}
+.signal-card.show{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.signal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:16px;}
+.ticker-display{font-size:34px;font-weight:800;letter-spacing:-1px;}
+.ticker-price{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--accent);margin-top:4px;}
+.ticker-change{font-family:var(--mono);font-size:12px;margin-top:4px;}
+.ticker-change.up{color:var(--accent2);}
+.ticker-change.down{color:var(--accent3);}
+.signal-badge{padding:14px 22px;border-radius:12px;font-size:16px;font-weight:800;text-align:center;border:2px solid;min-width:220px;}
+.signal-badge.alpha{background:rgba(240,192,64,0.1);border-color:var(--accent);color:var(--accent);}
+.signal-badge.buy{background:rgba(61,232,160,0.1);border-color:var(--accent2);color:var(--accent2);}
+.signal-badge.caution{background:rgba(240,160,64,0.08);border-color:#f0a040;color:#f0a040;}
+.signal-badge.avoid{background:rgba(224,90,90,0.1);border-color:var(--accent3);color:var(--accent3);}
+.signal-badge.watch{background:rgba(90,156,240,0.1);border-color:var(--accent4);color:var(--accent4);}
+
+/* SCORE BAR */
+.score-wrap{margin-bottom:22px;}
+.score-label{display:flex;justify-content:space-between;margin-bottom:8px;}
+.score-label span:first-child{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.score-label span:last-child{font-family:var(--mono);font-size:13px;font-weight:700;}
+.score-bar{height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.score-fill{height:100%;border-radius:4px;width:0%;transition:width 0.9s cubic-bezier(.4,0,.2,1);}
+
+/* METRICS */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+.metric{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.metric-label{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;}
+.metric-value{font-size:20px;font-weight:800;}
+.metric-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* ENTRY GRID */
+.entry-section-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;}
+.entry-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.entry-card{border-radius:12px;padding:16px;text-align:center;border:1px solid;}
+.entry-card.ep{background:rgba(240,192,64,0.07);border-color:rgba(240,192,64,0.28);}
+.entry-card.sl{background:rgba(224,90,90,0.07);border-color:rgba(224,90,90,0.28);}
+.entry-card.t1{background:rgba(61,232,160,0.07);border-color:rgba(61,232,160,0.28);}
+.entry-card.t2{background:rgba(90,156,240,0.07);border-color:rgba(90,156,240,0.28);}
+.ec-label{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;}
+.ec-val{font-size:20px;font-weight:800;font-family:var(--mono);}
+.entry-card.ep .ec-val{color:var(--accent);}
+.entry-card.sl .ec-val{color:var(--accent3);}
+.entry-card.t1 .ec-val{color:var(--accent2);}
+.entry-card.t2 .ec-val{color:var(--accent4);}
+.ec-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* BOTTOM PANELS */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;}
+.panel-title{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.panel-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* PORTFOLIO */
+.ptable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.ptable th{text-align:left;padding:7px 8px;color:var(--muted);font-weight:400;font-size:10px;border-bottom:1px solid var(--border);text-transform:uppercase;}
+.ptable td{padding:9px 8px;border-bottom:1px solid rgba(30,35,48,0.5);}
+.ptable tr:last-child td{border-bottom:none;}
+.pos{color:var(--accent2);}.neg{color:var(--accent3);}
+.add-row{display:flex;gap:8px;margin-top:14px;}
+.add-row input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;flex:1;transition:border-color 0.2s;}
+.add-row input:focus{border-color:var(--accent);}
+.add-btn{background:var(--accent);color:#000;border:none;cursor:pointer;border-radius:8px;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;}
+.add-btn:hover{background:#f5d060;}
+
+/* NOTIFICATIONS */
+.notif-toggle{background:rgba(90,156,240,0.08);border:1px solid rgba(90,156,240,0.25);color:var(--accent4);border-radius:8px;padding:7px 14px;font-family:var(--mono);font-size:11px;cursor:pointer;margin-bottom:12px;transition:all 0.15s;}
+.notif-toggle:hover{background:rgba(90,156,240,0.15);}
+.notif-toggle.on{background:rgba(61,232,160,0.08);border-color:rgba(61,232,160,0.25);color:var(--accent2);}
+.notif-list{display:flex;flex-direction:column;gap:7px;max-height:210px;overflow-y:auto;}
+.notif-item{background:var(--surface2);border-radius:8px;padding:10px 12px;border-left:3px solid;font-family:var(--mono);font-size:11px;animation:fadeUp 0.3s ease;}
+.notif-item.alpha{border-color:var(--accent);}
+.notif-item.buy{border-color:var(--accent2);}
+.notif-item.caution{border-color:#f0a040;}
+.notif-item.avoid{border-color:var(--accent3);}
+.notif-item.watch{border-color:var(--accent4);}
+.notif-time{color:var(--muted);font-size:10px;margin-top:3px;}
+.notif-empty{color:var(--muted);font-family:var(--mono);font-size:11px;text-align:center;padding:28px;}
+
+/* AUTO-REFRESH BAR */
+.refresh-bar{display:flex;align-items:center;gap:10px;background:rgba(240,192,64,0.05);border:1px solid rgba(240,192,64,0.15);border-radius:10px;padding:9px 16px;margin-bottom:16px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.refresh-bar b{color:var(--accent);}
+.refresh-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.refresh-now-btn{background:rgba(240,192,64,0.12);border:1px solid rgba(240,192,64,0.25);color:var(--accent);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;}
+.refresh-now-btn:hover{background:rgba(240,192,64,0.22);}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:768px){
+  .metrics-grid,.entry-grid{grid-template-columns:repeat(2,1fr);}
+  .bottom-grid{grid-template-columns:1fr;}
+  .ticker-row{grid-template-columns:1fr;}
+  .analyze-btn{min-height:52px;justify-content:center;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📈</div>
+      <div>
+        <div class="logo-text">NSE Trade Predictor</div>
+        <div class="logo-sub">MOMENTUM · SECTOR · VOLUME · ENTRY INTELLIGENCE</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:3px;letter-spacing:0.5px;">by Dr. Bhavik Rana</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="live-time"></div>
+      <div class="mkt-badge closed" id="mkt-badge">
+        <div class="pulse grey" id="mkt-pulse"></div>
+        <span id="mkt-text">MARKET CLOSED</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="api-bar">
+    <span class="tag">YAHOO FINANCE</span>
+    <span>🟢 Live price during market hours &nbsp;·&nbsp; 🔵 Last closing price when market is closed &nbsp;·&nbsp; No login required</span>
+  </div>
+
+  <!-- TICKER INPUT -->
+  <div class="ticker-row">
+    <div class="input-wrap">
+      <label>TICKER /</label>
+      <div class="autocomplete-wrap">
+        <input type="text" id="ticker-input" placeholder="e.g. SBIN, RELIANCE, TCS" maxlength="20" autocomplete="off" />
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+    </div>
+    <button class="analyze-btn" id="analyze-btn" onclick="analyze()">⚡ ANALYZE</button>
+  </div>
+
+  <!-- QUICK PICKS -->
+  <div class="quick-picks">
+    <span class="qlabel">QUICK:</span>
+    <div class="chip" onclick="quickPick('SBIN')">SBIN</div>
+    <div class="chip" onclick="quickPick('RELIANCE')">RELIANCE</div>
+    <div class="chip" onclick="quickPick('TCS')">TCS</div>
+    <div class="chip" onclick="quickPick('HDFCBANK')">HDFCBANK</div>
+    <div class="chip" onclick="quickPick('INFY')">INFY</div>
+    <div class="chip" onclick="quickPick('ICICIBANK')">ICICIBANK</div>
+    <div class="chip" onclick="quickPick('WIPRO')">WIPRO</div>
+    <div class="chip" onclick="quickPick('TATAMOTORS')">TATAMOTORS</div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-msg" id="error-msg"></div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    Fetching live price &amp; computing signals...
+  </div>
+
+  <!-- AUTO REFRESH BAR -->
+  <div class="refresh-bar" id="refresh-bar" style="display:none">
+    <div class="pulse green"></div>
+    <span>Auto-refresh <b>ON</b> · Market hours only</span>
+    <div class="refresh-right">
+      <span id="refresh-cd"></span>
+      <button class="refresh-now-btn" onclick="analyze()">↻ NOW</button>
+    </div>
+  </div>
+
+  <!-- SIGNAL CARD -->
+  <div class="signal-card" id="signal-card">
+    <div class="signal-header">
+      <div>
+        <div class="ticker-display" id="d-ticker">—</div>
+        <div class="ticker-price" id="d-price">—</div>
+        <div class="ticker-change" id="d-change">—</div>
+      </div>
+      <div class="signal-badge" id="d-badge">—</div>
+    </div>
+
+    <div class="score-wrap">
+      <div class="score-label">
+        <span>Momentum Score</span>
+        <span id="d-score">—</span>
+      </div>
+      <div class="score-bar"><div class="score-fill" id="d-score-fill"></div></div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric">
+        <div class="metric-label">Relative Strength</div>
+        <div class="metric-value" id="d-rel" style="font-size:15px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Volume Signal</div>
+        <div class="metric-value" id="d-vol" style="font-size:15px">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Day Change</div>
+        <div class="metric-value" id="d-mom">—</div>
+        <div class="metric-sub">vs prev close</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Trade Size</div>
+        <div class="metric-value" id="d-qty">—</div>
+        <div class="metric-sub">at ₹1,00,000 capital</div>
+      </div>
+    </div>
+
+    <div class="entry-section-label">Entry Intelligence</div>
+    <div class="entry-grid">
+      <div class="entry-card ep">
+        <div class="ec-label">📍 Entry Point</div>
+        <div class="ec-val" id="d-entry">—</div>
+        <div class="ec-sub">+0.2% above close</div>
+      </div>
+      <div class="entry-card sl">
+        <div class="ec-label">🛡 Stop Loss</div>
+        <div class="ec-val" id="d-sl">—</div>
+        <div class="ec-sub">−3% from close</div>
+      </div>
+      <div class="entry-card t1">
+        <div class="ec-label">🎯 Target 1</div>
+        <div class="ec-val" id="d-t1">—</div>
+        <div class="ec-sub">+4% · R:R 1:1.3</div>
+      </div>
+      <div class="entry-card t2">
+        <div class="ec-label">🚀 Target 2</div>
+        <div class="ec-val" id="d-t2">—</div>
+        <div class="ec-sub">+8% · R:R 1:2.7</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM PANELS -->
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title">Portfolio Tracker</div>
+      <table class="ptable">
+        <thead><tr><th>Ticker</th><th>Entry</th><th>CMP</th><th>Qty</th><th>P&amp;L</th><th></th></tr></thead>
+        <tbody id="ptbody"></tbody>
+      </table>
+      <div class="add-row">
+        <input type="text" id="pt-t" placeholder="Ticker" style="max-width:80px" />
+        <input type="number" id="pt-e" placeholder="Entry ₹" />
+        <input type="number" id="pt-q" placeholder="Qty" style="max-width:65px" />
+        <button class="add-btn" onclick="addTrade()">+ ADD</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Signal Alerts</div>
+      <button class="notif-toggle" id="notif-btn" onclick="toggleNotif()">🔔 Enable Desktop Notifications</button>
+      <div class="notif-list" id="notif-list">
+        <div class="notif-empty">Analyze a stock to see signals here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO USE -->
+  <div style="max-width:1200px;margin:0 auto 20px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+
+    <!-- Collapsible Header -->
+    <div onclick="toggleGuide()" style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📖</span>
+        <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.3px;">How To Use — Quick Start Guide</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;background:rgba(240,192,64,0.12);border:1px solid rgba(240,192,64,0.25);color:var(--accent);border-radius:6px;padding:2px 10px;">NEW USER</span>
+      </div>
+      <span id="guide-arrow" style="font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);">▼ EXPAND</span>
+    </div>
+
+    <!-- Guide Body -->
+    <div id="guide-body" style="display:none;padding:24px;">
+
+      <!-- STEP GRID -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;border-top:3px solid var(--accent);">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--accent);font-weight:700;margin-bottom:8px;">STEP 1</div>
+          <div style="font-size:22px;margin-bottom:8px;">🔍</div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px;">Enter a Ticker</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;">Type any NSE stock symbol in the search box — e.g. <span style="color:var(--accent)">SBIN</span>, <span style="color:var(--accent)">RELIANCE</span>, <span style="color:var(--accent)">TCS</span> — or click any Quick Pick chip below the box.</div>
+        </div>
+
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;border-top:3px solid var(--accent2);">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:8px;">STEP 2</div>
+          <div style="font-size:22px;margin-bottom:8px;">⚡</div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px;">Click ANALYZE</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;">Hit the yellow ANALYZE button or press <span style="color:var(--text)">Enter</span>. The app fetches the latest price and computes the Momentum Score, Sector Strength, and Volume Signal.</div>
+        </div>
+
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;border-top:3px solid var(--accent4);">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--accent4);font-weight:700;margin-bottom:8px;">STEP 3</div>
+          <div style="font-size:22px;margin-bottom:8px;">📊</div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px;">Read the Signal</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;">Check the <span style="color:var(--accent)">Execution Signal</span> badge on the top right of the result card. Only act on <span style="color:var(--accent)">💎 ALPHA BUY</span> or <span style="color:var(--accent2)">✅ BUY</span> signals.</div>
+        </div>
+
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;border-top:3px solid var(--accent3);">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--accent3);font-weight:700;margin-bottom:8px;">STEP 4</div>
+          <div style="font-size:22px;margin-bottom:8px;">🎯</div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:6px;">Use Entry Levels</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7;">Use the <span style="color:var(--accent)">Entry Point</span> to buy, <span style="color:var(--accent3)">Stop Loss</span> to exit if wrong, and <span style="color:var(--accent2)">Target 1 / Target 2</span> to book profits.</div>
+        </div>
+
+      </div>
+
+      <!-- SIGNAL LEGEND -->
+      <div style="margin-bottom:20px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Signal Legend</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="background:rgba(240,192,64,0.07);border:1px solid rgba(240,192,64,0.25);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);font-weight:700;margin-bottom:4px;">💎 ALPHA BUY</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;">Strongest signal. Score ≥80 + Sector Leader + Whale/Institutional volume. Enter with full position.</div>
+          </div>
+          <div style="background:rgba(61,232,160,0.07);border:1px solid rgba(61,232,160,0.25);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent2);font-weight:700;margin-bottom:4px;">✅ BUY</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;">Valid trend. Score ≥75, not a laggard, volume is present. Enter with 50–75% of normal position.</div>
+          </div>
+          <div style="background:rgba(240,160,64,0.07);border:1px solid rgba(240,160,64,0.25);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:#f0a040;font-weight:700;margin-bottom:4px;">⚠️ CAUTION</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;">Mixed signals. Either sector drag or no smart money volume. Wait for better setup.</div>
+          </div>
+          <div style="background:rgba(224,90,90,0.07);border:1px solid rgba(224,90,90,0.25);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent3);font-weight:700;margin-bottom:4px;">❌ AVOID</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;">Weak momentum. Score below 50. Stay in cash. No exceptions — do not trade this setup.</div>
+          </div>
+          <div style="background:rgba(90,156,240,0.07);border:1px solid rgba(90,156,240,0.25);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--accent4);font-weight:700;margin-bottom:4px;">🟡 WATCH</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;">Momentum building but not confirmed. Add to watchlist and re-analyze next session.</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+            <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--text);font-weight:700;margin-bottom:4px;">📊 Score Guide</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:1.6;"><span style="color:var(--accent)">80–100</span> High conviction &nbsp;·&nbsp; <span style="color:var(--accent2)">70–79</span> Emerging &nbsp;·&nbsp; <span style="color:var(--accent3)">Below 70</span> No-trade zone</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PORTFOLIO + TIPS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Using Portfolio Tracker</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:2;">
+            1. After analyzing a stock, the <span style="color:var(--text)">Ticker</span>, <span style="color:var(--text)">Entry</span> and <span style="color:var(--text)">Qty</span> fields auto-fill below.<br>
+            2. Adjust Qty as needed → click <span style="color:var(--accent)">+ ADD</span> to log the trade.<br>
+            3. CMP updates automatically every 60s during market hours.<br>
+            4. P&amp;L shown in <span style="color:var(--accent2)">green</span> (profit) or <span style="color:var(--accent3)">red</span> (loss) in real time.<br>
+            5. Click <span style="color:var(--muted)">✕</span> to remove a trade from the tracker.
+          </div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Pro Tips from Dr. Bhavik Rana</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);line-height:2;">
+            💡 <span style="color:var(--text)">Golden rule:</span> Only trade 💎 ALPHA BUY signals for highest accuracy.<br>
+            💡 <span style="color:var(--text)">Volume trap:</span> High score + ❄️ LOW VOL = fake breakout. Avoid.<br>
+            💡 <span style="color:var(--text)">Best time:</span> Analyze between 9:30–10:00 AM after market opens.<br>
+            💡 <span style="color:var(--text)">Position size:</span> Never risk more than 2% of capital on one trade.<br>
+            💡 <span style="color:var(--text)">SL discipline:</span> Always place Stop Loss before entering a trade.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div style="max-width:1200px;margin:0 auto;padding:0 24px 16px;font-family:'Space Mono',monospace;font-size:10px;color:#555e78;line-height:1.8;background:rgba(224,90,90,0.04);border:1px solid rgba(224,90,90,0.12);border-radius:12px;padding:16px 20px;margin-bottom:12px;">
+  <span style="color:#e05a5a;font-weight:700;letter-spacing:1px;">⚠ DISCLAIMER</span><br>
+  This tool is developed by <span style="color:#f0c040;">Dr. Bhavik Rana</span> for <b style="color:#e8eaf0">educational and informational purposes only</b>. It does not constitute financial, investment, or trading advice. All signals, scores, entry points, stop losses, and targets generated by this application are algorithmic in nature and do not guarantee any returns. Stock market investments are subject to market risks. Past performance is not indicative of future results. Users are solely responsible for their own trading and investment decisions. Please consult a SEBI-registered investment advisor before making any financial decisions. The creator of this tool shall not be held liable for any financial losses incurred through the use of this application.
+</div>
+
+<div style="text-align:center;padding:20px 24px 32px;font-family:'Space Mono',monospace;font-size:11px;color:#555e78;">
+  © 2026 <span style="color:#f0c040;font-weight:700;">Dr. Bhavik Rana</span> · All Rights Reserved · NSE Trade Predictor
+</div>
+
+<script>
+// ── CLOCK & MARKET STATUS ────────────────────────────────────
+function tick() {
+  var now = new Date();
+  var el = document.getElementById('live-time');
+  if (el) el.textContent = now.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  refreshMarketBadge();
+}
+setInterval(tick, 1000);
+tick();
+
+function isMarketOpen() {
+  try {
+    var ist = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+    var day = ist.getDay();
+    if (day === 0 || day === 6) return false;
+    var m = ist.getHours() * 60 + ist.getMinutes();
+    return m >= 555 && m < 930; // 9:15 = 555, 15:30 = 930
+  } catch(e) { return false; }
+}
+
+function refreshMarketBadge() {
+  var open = isMarketOpen();
+  var badge = document.getElementById('mkt-badge');
+  var pulse = document.getElementById('mkt-pulse');
+  var txt   = document.getElementById('mkt-text');
+  if (!badge) return;
+  badge.className = 'mkt-badge ' + (open ? 'open' : 'closed');
+  pulse.className = 'pulse ' + (open ? 'green' : 'grey');
+  txt.textContent = open ? 'MARKET OPEN' : 'MARKET CLOSED';
+}
+
+// ── STATE ────────────────────────────────────────────────────
+var portfolio  = [];
+var notifOn    = false;
+var notifLog   = [];
+var lastData   = null;
+var cdTimer    = null;
+var cdSecs     = 60;
+var analyzing  = false;
+
+// ── AUTO REFRESH ─────────────────────────────────────────────
+function startCountdown() {
+  document.getElementById('refresh-bar').style.display = 'flex';
+  clearInterval(cdTimer);
+  cdSecs = 60;
+  cdTimer = setInterval(function() {
+    if (isMarketOpen()) {
+      cdSecs--;
+      var el = document.getElementById('refresh-cd');
+      if (el) el.textContent = 'Next in ' + cdSecs + 's';
+      if (cdSecs <= 0) {
+        cdSecs = 60;
+        var t = document.getElementById('ticker-input').value.trim().toUpperCase();
+        if (t) analyze(true);
+      }
+    } else {
+      var el = document.getElementById('refresh-cd');
+      if (el) el.textContent = 'Market closed';
+    }
+  }, 1000);
+}
+
+// ── NSE TICKER ALIASES (common short names → correct NSE symbol) ──
+var TICKER_MAP = {
+  'HYUNDAI':'HYUNDAIMOTOR', 'HYUNDAIMOTOR':'HYUNDAIMOTOR',
+  'TATA':'TATAMOTORS', 'TATASTEEL':'TATASTEEL', 'TATAPOWER':'TATAPOWER',
+  'TATAMOTOR':'TATAMOTORS', 'TATAMOTORS':'TATAMOTORS',
+  'BAJAJ':'BAJFINANCE', 'BAJAJFINANCE':'BAJFINANCE', 'BAJFINANCE':'BAJFINANCE',
+  'BAJAJFINSV':'BAJAJFINSV', 'BAJAJAUTO':'BAJAJAUTO',
+  'HDFC':'HDFCBANK', 'HDFCBANK':'HDFCBANK', 'HDFCLIFE':'HDFCLIFE',
+  'ICICI':'ICICIBANK', 'ICICIBANK':'ICICIBANK', 'ICICIPRU':'ICICIPRULI',
+  'SBI':'SBIN', 'SBIN':'SBIN', 'SBIIN':'SBIN',
+  'RELIANCE':'RELIANCE', 'RIL':'RELIANCE',
+  'TCS':'TCS', 'TATACONS':'TCS',
+  'INFY':'INFY', 'INFOSYS':'INFY',
+  'WIPRO':'WIPRO',
+  'HCL':'HCLTECH', 'HCLTECH':'HCLTECH',
+  'MARUTI':'MARUTI', 'MARUTISUZUKI':'MARUTI',
+  'ONGC':'ONGC', 'NTPC':'NTPC', 'POWERGRID':'POWERGRID',
+  'COAL':'COALINDIA', 'COALINDIA':'COALINDIA',
+  'ADANI':'ADANIENT', 'ADANIENT':'ADANIENT', 'ADANIPORTS':'ADANIPORTS',
+  'ADANIGREEN':'ADANIGREEN', 'ADANIPOWER':'ADANIPOWER',
+  'AXISBANK':'AXISBANK', 'AXIS':'AXISBANK',
+  'KOTAK':'KOTAKBANK', 'KOTAKBANK':'KOTAKBANK',
+  'LT':'LT', 'L&T':'LT', 'LARSEN':'LT',
+  'SUNPHARMA':'SUNPHARMA', 'SUN':'SUNPHARMA',
+  'DRREDDY':'DRREDDY', 'DRREDDYS':'DRREDDY',
+  'CIPLA':'CIPLA', 'DIVISLAB':'DIVISLAB',
+  'TITAN':'TITAN', 'ASIAN':'ASIANPAINT', 'ASIANPAINT':'ASIANPAINT',
+  'NESTLE':'NESTLEIND', 'NESTLEIND':'NESTLEIND',
+  'HINDUNILVR':'HINDUNILVR', 'HUL':'HINDUNILVR',
+  'ITC':'ITC', 'BRITANNIA':'BRITANNIA',
+  'ULTRACEMCO':'ULTRACEMCO', 'ULTRATECH':'ULTRACEMCO',
+  'GRASIM':'GRASIM', 'SHREECEM':'SHREECEM',
+  'BHARTIARTL':'BHARTIARTL', 'AIRTEL':'BHARTIARTL',
+  'JIOFIN':'JIOFIN', 'JIOINANCIAL':'JIOFIN',
+  'ZOMATO':'ZOMATO', 'SWIGGY':'SWIGGY',
+  'PAYTM':'PAYTM', 'NYKAA':'NYKAA', 'POLICYBZR':'POLICYBZR',
+  'INDUSINDBK':'INDUSINDBK', 'INDUSIND':'INDUSINDBK',
+  'PNB':'PNB', 'BANKBARODA':'BANKBARODA', 'BOB':'BANKBARODA',
+  'CANBK':'CANBK', 'UNIONBANK':'UNIONBANK',
+  'HINDALCO':'HINDALCO', 'JSWSTEEL':'JSWSTEEL', 'SAIL':'SAIL',
+  'BPCL':'BPCL', 'IOC':'IOC', 'HINDPETRO':'HINDPETRO',
+  'TECHM':'TECHM', 'MPHASIS':'MPHASIS', 'LTIM':'LTIM',
+  'MOTHERSON':'MOTHERSONSUM', 'BOSCH':'BOSCHLTD',
+  'DIXON':'DIXON', 'HAVELLS':'HAVELLS', 'VOLTAS':'VOLTAS',
+  'DMART':'DMART', 'AVENUE':'DMART',
+  'IRCTC':'IRCTC', 'IRFC':'IRFC', 'RAILVIKAS':'RVNL', 'RVNL':'RVNL',
+  'HAL':'HAL', 'BEL':'BEL', 'BHEL':'BHEL',
+  'TRENT':'TRENT', 'VEDL':'VEDL', 'VEDANTA':'VEDL',
+  'GODREJCP':'GODREJCP', 'GODREJPROP':'GODREJPROP',
+  'MUTHOOTFIN':'MUTHOOTFIN', 'CHOLAFIN':'CHOLAFIN',
+  'SBICARD':'SBICARD', 'SBILIFE':'SBILIFE'
+};
+
+function resolveTicker(input) {
+  var t = input.toUpperCase().trim();
+  return TICKER_MAP[t] || t;
+}
+function fetchYahoo(ticker, callback) {
+  var symbol = ticker.toUpperCase();
+  if (symbol.indexOf('.') === -1) symbol = symbol + '.NS';
+
+  // Try direct Yahoo Finance endpoints (no proxy needed)
+  var endpoints = [
+    'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d&cors=true',
+    'https://query2.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d&cors=true',
+    'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol + '&cors=true'
+  ];
+
+  var attempt = 0;
+
+  function parseChart(data) {
+    var result = data.chart.result[0];
+    var meta   = result.meta;
+    var quote  = result.indicators.quote[0];
+    var closes  = (quote.close  || []).filter(function(v){ return v != null; });
+    var volumes = (quote.volume || []).filter(function(v){ return v != null; });
+    var opens   = (quote.open   || []).filter(function(v){ return v != null; });
+    var highs   = (quote.high   || []).filter(function(v){ return v != null; });
+    var lows    = (quote.low    || []).filter(function(v){ return v != null; });
+    var close     = meta.regularMarketPrice || closes[closes.length-1];
+    var prevClose = meta.chartPreviousClose  || (closes.length>1 ? closes[closes.length-2] : close);
+    return {
+      close: close, open: opens.length ? opens[opens.length-1] : close,
+      high:  highs.length ? highs[highs.length-1] : close,
+      low:   lows.length  ? lows[lows.length-1]   : close,
+      prevClose: prevClose,
+      volume:   volumes.length ? volumes[volumes.length-1] : 0,
+      avgVolume: volumes.length > 1 ? volumes.reduce(function(a,b){return a+b;},0)/volumes.length : 0
+    };
+  }
+
+  function parseQuote(data) {
+    var q = data.quoteResponse.result[0];
+    return {
+      close: q.regularMarketPrice, open: q.regularMarketOpen,
+      high:  q.regularMarketDayHigh, low: q.regularMarketDayLow,
+      prevClose: q.regularMarketPreviousClose,
+      volume: q.regularMarketVolume, avgVolume: q.averageDailyVolume3Month || q.regularMarketVolume
+    };
+  }
+
+  function tryNext() {
+    if (attempt >= endpoints.length) {
+      // Last resort: JSONP approach
+      tryJSONP(symbol, callback);
+      return;
+    }
+    var url      = endpoints[attempt];
+    var isQuote  = url.indexOf('/v7/') !== -1;
+    attempt++;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 7000;
+    xhr.setRequestHeader('Accept', 'application/json');
+
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          var result = isQuote ? parseQuote(data) : parseChart(data);
+          callback(null, result);
+        } catch(e) {
+          console.warn('Endpoint ' + attempt + ' parse fail:', e.message);
+          tryNext();
+        }
+      } else {
+        console.warn('Endpoint ' + attempt + ' status:', xhr.status);
+        tryNext();
+      }
+    };
+    xhr.onerror   = function() { console.warn('Endpoint ' + attempt + ' error'); tryNext(); };
+    xhr.ontimeout = function() { console.warn('Endpoint ' + attempt + ' timeout'); tryNext(); };
+    xhr.send();
+  }
+
+  tryNext();
+}
+
+// ── JSONP FALLBACK ────────────────────────────────────────────
+function tryJSONP(symbol, callback) {
+  var cbName = '_yf_cb_' + Date.now();
+  var script = document.createElement('script');
+  var done   = false;
+  var timer  = setTimeout(function() {
+    if (!done) {
+      done = true;
+      cleanup();
+      // Final fallback: try corsproxy with no-cors hint
+      tryCorsproxy(symbol, callback);
+    }
+  }, 6000);
+
+  window[cbName] = function(data) {
+    if (done) return;
+    done = true; cleanup();
+    try {
+      var q = data.quoteResponse.result[0];
+      callback(null, {
+        close: q.regularMarketPrice, open: q.regularMarketOpen,
+        high:  q.regularMarketDayHigh, low: q.regularMarketDayLow,
+        prevClose: q.regularMarketPreviousClose,
+        volume: q.regularMarketVolume, avgVolume: q.averageDailyVolume3Month || q.regularMarketVolume
+      });
+    } catch(e) { tryCorsproxy(symbol, callback); }
+  };
+
+  function cleanup() {
+    clearTimeout(timer);
+    delete window[cbName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  script.onerror = function() {
+    if (!done) { done = true; cleanup(); tryCorsproxy(symbol, callback); }
+  };
+  script.src = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol + '&callback=' + cbName;
+  document.head.appendChild(script);
+}
+
+// ── CORSPROXY FINAL ATTEMPT ───────────────────────────────────
+function tryCorsproxy(symbol, callback) {
+  var proxies = [
+    'https://api.allorigins.win/get?url=' + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d'),
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d'),
+    'https://corsproxy.io/?' + encodeURIComponent('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol)
+  ];
+  var pi = 0;
+
+  function nextProxy() {
+    if (pi >= proxies.length) { callback('All methods failed', null); return; }
+    var url     = proxies[pi];
+    var isRaw   = url.indexOf('corsproxy.io') !== -1;
+    var isQuote = url.indexOf('/v7/') !== -1;
+    pi++;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 8000;
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        try {
+          var raw  = xhr.responseText;
+          var data = isRaw ? JSON.parse(raw) : JSON.parse(JSON.parse(raw).contents || raw);
+          var result;
+          if (isQuote) {
+            var q = data.quoteResponse.result[0];
+            result = { close:q.regularMarketPrice, open:q.regularMarketOpen,
+              high:q.regularMarketDayHigh, low:q.regularMarketDayLow,
+              prevClose:q.regularMarketPreviousClose,
+              volume:q.regularMarketVolume, avgVolume:q.averageDailyVolume3Month||q.regularMarketVolume };
+          } else {
+            var r = data.chart.result[0], m = r.meta, qt = r.indicators.quote[0];
+            var cls = (qt.close||[]).filter(function(v){return v!=null;});
+            var vols= (qt.volume||[]).filter(function(v){return v!=null;});
+            result = { close:m.regularMarketPrice||cls[cls.length-1],
+              open:(qt.open||[])[qt.open.length-1]||m.regularMarketPrice,
+              high:(qt.high||[])[qt.high.length-1]||m.regularMarketPrice,
+              low:(qt.low||[])[qt.low.length-1]||m.regularMarketPrice,
+              prevClose:m.chartPreviousClose||(cls.length>1?cls[cls.length-2]:cls[0]),
+              volume:vols[vols.length-1]||0,
+              avgVolume:vols.length>1?vols.reduce(function(a,b){return a+b;},0)/vols.length:0 };
+          }
+          callback(null, result);
+        } catch(e) { nextProxy(); }
+      } else { nextProxy(); }
+    };
+    xhr.onerror = xhr.ontimeout = function(){ nextProxy(); };
+    xhr.send();
+  }
+  nextProxy();
+}
+
+// ── ANALYZE ──────────────────────────────────────────────────
+function analyze(silent) {
+  if (analyzing) return;
+  var raw      = document.getElementById('ticker-input').value.trim().toUpperCase();
+  if (!raw) { showError('Please enter a ticker symbol.'); return; }
+
+  // Resolve alias → correct NSE ticker
+  var resolved = resolveTicker(raw);
+  if (resolved !== raw && !silent) {
+    document.getElementById('ticker-input').value = resolved;
+  }
+
+  hideError();
+  analyzing = true;
+
+  if (!silent) {
+    showLoading(true);
+    document.getElementById('signal-card').classList.remove('show');
+    document.getElementById('analyze-btn').disabled = true;
+  }
+
+  fetchYahoo(resolved, function(err, priceData) {
+    analyzing = false;
+    if (!silent) {
+      showLoading(false);
+      document.getElementById('analyze-btn').disabled = false;
+    }
+
+    var data;
+    if (err || !priceData) {
+      console.warn('Yahoo fetch error:', err);
+      var suggestion = '';
+      if (resolved !== raw) {
+        // Already tried an alias, no further suggestion needed
+      } else {
+        for (var key in TICKER_MAP) {
+          if (TICKER_MAP[key] !== resolved && (key.indexOf(raw) !== -1 || raw.indexOf(key) !== -1)) {
+            suggestion = ' Did you mean <b>' + TICKER_MAP[key] + '</b>?';
+            break;
+          }
+        }
+      }
+      if (!silent) {
+        var msg = '⚠ Could not fetch price for "' + resolved + '".';
+        if (suggestion) {
+          msg += suggestion;
+        } else {
+          msg += ' This may be a CORS issue with local files. <b>Host the app on Netlify</b> for live prices to work reliably.';
+        }
+        showErrorHTML(msg);
+      }
+      data = buildSignal(resolved, null);
+    } else {
+      data = buildSignal(resolved, priceData);
+      hideError();
+    }
+
+    lastData = data;
+    renderSignal(data);
+    logNotif(data);
+
+    if (!silent) {
+      document.getElementById('signal-card').classList.add('show');
+      document.getElementById('pt-t').value = resolved;
+      document.getElementById('pt-e').value = data.entry.toFixed(1);
+      document.getElementById('pt-q').value = data.qty;
+      startCountdown();
+    } else {
+      updateCMPs(resolved, data.close);
+    }
+    cdSecs = 60;
+  });
+}
+
+// ── BUILD SIGNAL ─────────────────────────────────────────────
+function buildSignal(ticker, live) {
+  var close, open, high, low, prevClose, volume, avgVolume;
+
+  if (live) {
+    close = live.close; open = live.open; high = live.high; low = live.low;
+    prevClose = live.prevClose; volume = live.volume; avgVolume = live.avgVolume || live.volume;
+  } else {
+    var rng = seededRng(hashCode(ticker));
+    close     = Math.round((200 + rng() * 4800) * 100) / 100;
+    open      = Math.round(close * (0.985 + rng() * 0.03) * 100) / 100;
+    high      = Math.round(close * (1.002 + rng() * 0.025) * 100) / 100;
+    low       = Math.round(close * (0.974 - rng() * 0.01) * 100) / 100;
+    prevClose = Math.round(close * (0.96 + rng() * 0.08) * 100) / 100;
+    volume    = Math.round(500000 + rng() * 50000000);
+    avgVolume = Math.round(volume / (0.5 + rng() * 3.5));
+  }
+
+  var change      = ((close - prevClose) / prevClose) * 100;
+  var volMult     = avgVolume > 0 ? volume / avgVolume : 1;
+  var mom         = (close - prevClose) / prevClose;
+
+  var score = live
+    ? Math.min(100, Math.max(10, Math.round(50 + mom * 800 + (volMult - 1) * 8)))
+    : Math.round(45 + seededRng(hashCode(ticker) + 99)() * 55);
+
+  var relStr = live
+    ? (mom > 0.02 ? '🚀 LEADER' : mom > 0 ? '✅ PERFORMER' : '❌ LAGGARD')
+    : (seededRng(hashCode(ticker) + 1)() > 0.4 ? '🚀 LEADER' : '✅ PERFORMER');
+
+  var volLabel;
+  if      (volMult >= 2)   volLabel = '🐳 WHALE ENTRY';
+  else if (volMult >= 1.5) volLabel = '🐘 INSTITUTIONAL';
+  else if (volMult >= 1.1) volLabel = '✅ ABOVE AVG';
+  else                     volLabel = '❄️ LOW VOL';
+
+  var signal, cls;
+  if (score >= 80 && relStr === '🚀 LEADER' && (volLabel === '🐳 WHALE ENTRY' || volLabel === '🐘 INSTITUTIONAL')) {
+    signal = '💎 ALPHA BUY | FULL ALIGNMENT'; cls = 'alpha';
+  } else if (score >= 75 && relStr !== '❌ LAGGARD' && volLabel !== '❄️ LOW VOL') {
+    signal = '✅ BUY | TREND CONFIRMED';       cls = 'buy';
+  } else if (score >= 70 && relStr === '❌ LAGGARD') {
+    signal = '⚠️ CAUTION | SECTOR DRAG';       cls = 'caution';
+  } else if (score >= 70 && volLabel === '❄️ LOW VOL') {
+    signal = '⚠️ CAUTION | NO SMART MONEY';   cls = 'caution';
+  } else if (score < 50) {
+    signal = '❌ AVOID | WEAK MOMENTUM';        cls = 'avoid';
+  } else {
+    signal = '🟡 WATCH | WAITING FOR SETUP';   cls = 'watch';
+  }
+
+  var em    = cls === 'alpha' ? 1.002 : 1.003;
+  var sm    = cls === 'alpha' ? 0.97  : 0.975;
+  var entry = Math.round(close * em * 10) / 10;
+  var sl    = Math.round(close * sm * 10) / 10;
+  var t1    = Math.round(close * 1.04 * 10) / 10;
+  var t2    = Math.round(close * 1.08 * 10) / 10;
+  var qty   = Math.floor(100000 / close);
+
+  return {ticker:ticker, close:close, change:change, score:score,
+          relStr:relStr, volLabel:volLabel, signal:signal, cls:cls,
+          entry:entry, sl:sl, t1:t1, t2:t2, qty:qty,
+          mom:change.toFixed(2), isLive:!!live};
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function renderSignal(d) {
+  var marketOpen = isMarketOpen();
+  var sourceLabel;
+  if (!d.isLive) {
+    sourceLabel = ' · ⚙️ SIMULATED';
+  } else if (marketOpen) {
+    sourceLabel = ' · 🟢 LIVE';
+  } else {
+    sourceLabel = ' · 🔵 LAST CLOSING PRICE';
+  }
+
+  document.getElementById('d-ticker').textContent = d.ticker + (d.isLive ? (marketOpen ? ' 🟢' : ' 🔵') : ' ⚙️');
+  document.getElementById('d-price').textContent  = '₹' + d.close.toFixed(2);
+
+  var chEl = document.getElementById('d-change');
+  chEl.textContent = (d.change >= 0 ? '▲ +' : '▼ ') + Math.abs(d.change).toFixed(2) + '% today' + sourceLabel;
+  chEl.className = 'ticker-change ' + (d.change >= 0 ? 'up' : 'down');
+
+  var badge = document.getElementById('d-badge');
+  badge.textContent = d.signal;
+  badge.className   = 'signal-badge ' + d.cls;
+
+  document.getElementById('d-score').textContent = d.score + ' / 100';
+  var fill = document.getElementById('d-score-fill');
+  fill.style.background = d.score >= 80 ? '#f0c040' : d.score >= 70 ? '#3de8a0' : d.score >= 50 ? '#5a9cf0' : '#e05a5a';
+  setTimeout(function(){ fill.style.width = d.score + '%'; }, 50);
+
+  document.getElementById('d-rel').textContent = d.relStr;
+  document.getElementById('d-vol').textContent = d.volLabel;
+  document.getElementById('d-mom').textContent = (d.mom >= 0 ? '+' : '') + d.mom + '%';
+  document.getElementById('d-mom').style.color = d.mom >= 0 ? 'var(--accent2)' : 'var(--accent3)';
+  document.getElementById('d-qty').textContent = d.qty + ' shares';
+
+  document.getElementById('d-entry').textContent = '₹' + d.entry.toFixed(1);
+  document.getElementById('d-sl').textContent    = '₹' + d.sl.toFixed(1);
+  document.getElementById('d-t1').textContent    = '₹' + d.t1.toFixed(1);
+  document.getElementById('d-t2').textContent    = '₹' + d.t2.toFixed(1);
+}
+
+// ── PORTFOLIO ────────────────────────────────────────────────
+function addTrade() {
+  var t = document.getElementById('pt-t').value.trim().toUpperCase();
+  var e = parseFloat(document.getElementById('pt-e').value);
+  var q = parseInt(document.getElementById('pt-q').value);
+  if (!t || isNaN(e) || isNaN(q) || q <= 0) { alert('Please fill Ticker, Entry price and Quantity.'); return; }
+  var cmp = (lastData && lastData.ticker === t) ? lastData.close : e;
+  portfolio.push({t:t, e:e, q:q, cmp:Math.round(cmp*100)/100});
+  renderPortfolio();
+  document.getElementById('pt-t').value = '';
+  document.getElementById('pt-e').value = '';
+  document.getElementById('pt-q').value = '';
+}
+
+function removeTrade(i) {
+  portfolio.splice(i, 1);
+  renderPortfolio();
+}
+
+function updateCMPs(ticker, cmp) {
+  var changed = false;
+  for (var i = 0; i < portfolio.length; i++) {
+    if (portfolio[i].t === ticker) { portfolio[i].cmp = Math.round(cmp*100)/100; changed = true; }
+  }
+  if (changed) renderPortfolio();
+}
+
+function renderPortfolio() {
+  var tbody = document.getElementById('ptbody');
+  if (!portfolio.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-family:var(--mono);font-size:11px;">No trades yet.</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < portfolio.length; i++) {
+    var p = portfolio[i];
+    var pnl    = (p.cmp - p.e) * p.q;
+    var pnlPct = ((p.cmp - p.e) / p.e * 100).toFixed(2);
+    var cls    = pnl >= 0 ? 'pos' : 'neg';
+    var sign   = pnl >= 0 ? '+' : '';
+    html += '<tr>'
+      + '<td style="font-weight:700">' + p.t + '</td>'
+      + '<td>₹' + p.e + '</td>'
+      + '<td>₹' + p.cmp + '</td>'
+      + '<td>' + p.q + '</td>'
+      + '<td class="' + cls + '">' + sign + '₹' + Math.round(pnl) + ' (' + sign + pnlPct + '%)</td>'
+      + '<td><span style="cursor:pointer;color:var(--muted)" onclick="removeTrade(' + i + ')">✕</span></td>'
+      + '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+renderPortfolio();
+
+// ── NOTIFICATIONS ────────────────────────────────────────────
+function toggleNotif() {
+  if (!notifOn) {
+    if ('Notification' in window) {
+      Notification.requestPermission(function(p) {
+        if (p === 'granted') {
+          notifOn = true;
+          document.getElementById('notif-btn').textContent = '🔔 Notifications ON';
+          document.getElementById('notif-btn').classList.add('on');
+        }
+      });
+    }
+  } else {
+    notifOn = false;
+    document.getElementById('notif-btn').textContent = '🔔 Enable Desktop Notifications';
+    document.getElementById('notif-btn').classList.remove('on');
+  }
+}
+
+function logNotif(d) {
+  var actionable = d.cls === 'alpha' || d.cls === 'buy';
+  var msg = d.ticker + ': ' + d.signal + ' | Entry ₹' + d.entry.toFixed(1) + ' | SL ₹' + d.sl.toFixed(1) + ' | Score ' + d.score;
+  var now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+  notifLog.unshift({msg:msg, time:now, cls:d.cls});
+
+  if (notifOn && actionable && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    new Notification('📈 ' + d.ticker + ' — ' + d.signal, {
+      body: 'Entry: ₹' + d.entry.toFixed(1) + '  |  SL: ₹' + d.sl.toFixed(1) + '  |  Score: ' + d.score
+    });
+  }
+
+  var list = document.getElementById('notif-list');
+  var html = '';
+  var items = notifLog.slice(0, 10);
+  for (var i = 0; i < items.length; i++) {
+    html += '<div class="notif-item ' + items[i].cls + '">'
+      + '<div>' + items[i].msg + '</div>'
+      + '<div class="notif-time">' + items[i].time + '</div>'
+      + '</div>';
+  }
+  list.innerHTML = html;
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function toggleGuide() {
+  var body  = document.getElementById('guide-body');
+  var arrow = document.getElementById('guide-arrow');
+  var open  = body.style.display === 'block';
+  body.style.display  = open ? 'none' : 'block';
+  arrow.textContent   = open ? '▼ EXPAND' : '▲ COLLAPSE';
+}
+
+function showLoading(b) { document.getElementById('loading').className = b ? 'loading show' : 'loading'; }
+function showError(msg) {
+  var el = document.getElementById('error-msg');
+  el.textContent = msg; el.classList.add('show');
+}
+function showErrorHTML(msg) {
+  var el = document.getElementById('error-msg');
+  el.innerHTML = msg; el.classList.add('show');
+}
+function hideError() { document.getElementById('error-msg').classList.remove('show'); }
+
+function hashCode(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function seededRng(seed) {
+  var s = seed;
+  return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+function quickPick(t) {
+  document.getElementById('ticker-input').value = t;
+  analyze();
+}
+
+// ── NSE TICKER LIST (500 stocks from NSE Master) ─────────────
+var NSE_TICKERS = ["360ONE","3MINDIA","ABB","ACC","ACMESOLAR","AIAENG","APLAPOLLO","AUBANK","AWL","AADHARHFC","AARTIIND","AAVAS","ABBOTINDIA","ACE","ADANIENSOL","ADANIENT","ADANIGREEN","ADANIPORTS","ADANIPOWER","ATGL","ABCAPITAL","ABFRL","ABLBL","ABREL","ABSLAMC","AEGISLOG","AEGISVOPAK","AFCONS","AFFLE","AJANTPHARM","AKUMS","AKZOINDIA","APLLTD","ALKEM","ALKYLAMINE","ALOKINDS","ARE&M","AMBER","AMBUJACEM","ANANDRATHI","ANANTRAJ","ANGELONE","APARINDS","APOLLOHOSP","APOLLOTYRE","APTUS","ASAHIINDIA","ASHOKLEY","ASIANPAINT","ASTERDM","ASTRAZEN","ASTRAL","ATHERENERG","ATUL","AUROPHARMA","AIIL","DMART","AXISBANK","BASF","BEML","BLS","BSE","BAJAJ-AUTO","BAJFINANCE","BAJAJFINSV","BAJAJHLDNG","BAJAJHFL","BALKRISIND","BALRAMCHIN","BANDHANBNK","BANKBARODA","BANKINDIA","MAHABANK","BATAINDIA","BAYERCROP","BERGEPAINT","BDL","BEL","BHARATFORG","BHEL","BPCL","BHARTIARTL","BHARTIHEXA","BIKAJI","BIOCON","BSOFT","BLUEDART","BLUEJET","BLUESTARCO","BBTC","BOSCHLTD","FIRSTCRY","BRIGADE","BRITANNIA","MAPMYINDIA","CCL","CESC","CGPOWER","CRISIL","CAMPUS","CANFINHOME","CANBK","CAPLIPOINT","CGCL","CARBORUNIV","CASTROLIND","CEATLTD","CENTRALBK","CDSL","CENTURYPLY","CERA","CHALET","CHAMBLFERT","CHENNPETRO","CHOICEIN","CHOLAHLDNG","CHOLAFIN","CIPLA","CUB","CLEAN","COALINDIA","COCHINSHIP","COFORGE","COHANCE","COLPAL","CAMS","CONCORDBIO","CONCOR","COROMANDEL","CRAFTSMAN","CREDITACC","CROMPTON","CUMMINSIND","CYIENT","DCMSHRIRAM","DLF","DOMS","DABUR","DALBHARAT","DATAPATTNS","DEEPAKFERT","DEEPAKNTR","DELHIVERY","DEVYANI","DIVISLAB","DIXON","AGARWALEYE","LALPATHLAB","DRREDDY","EIDPARRY","EIHOTEL","EICHERMOT","ELECON","ELGIEQUIP","EMAMILTD","EMCURE","ENDURANCE","ENGINERSIN","ERIS","ESCORTS","ETERNAL","EXIDEIND","NYKAA","FEDERALBNK","FACT","FINCABLES","FINPIPE","FSL","FIVESTAR","FORCEMOT","FORTIS","GAIL","GVT&D","GMRAIRPORT","GRSE","GICRE","GILLETTE","GLAND","GLAXO","GLENMARK","MEDANTA","GODIGIT","GPIL","GODFRYPHLP","GODREJAGRO","GODREJCP","GODREJIND","GODREJPROP","GRANULES","GRAPHITE","GRASIM","GRAVITA","GESHIP","FLUOROCHEM","GUJGASLTD","GMDCLTD","GSPL","HEG","HBLENGINE","HCLTECH","HDFCAMC","HDFCBANK","HDFCLIFE","HFCL","HAPPSTMNDS","HAVELLS","HEROMOTOCO","HEXT","HSCL","HINDALCO","HAL","HINDCOPPER","HINDPETRO","HINDUNILVR","HINDZINC","POWERINDIA","HOMEFIRST","HONASA","HONAUT","HUDCO","HYUNDAI","ICICIBANK","ICICIGI","ICICIPRULI","IDBI","IDFCFIRSTB","IFCI","IIFL","INOXINDIA","IRB","IRCON","ITCHOTELS","ITC","ITI","INDGN","INDIACEM","INDIAMART","INDIANB","IEX","INDHOTEL","IOC","IOB","IRCTC","IRFC","IREDA","IGL","INDUSTOWER","INDUSINDBK","NAUKRI","INFY","INOXWIND","INTELLECT","INDIGO","IGIL","IKS","IPCALAB","JBCHEPHARM","JKCEMENT","JBMA","JKTYRE","JMFINANCIL","JSWCEMENT","JSWENERGY","JSWINFRA","JSWSTEEL","JPPOWER","J&KBANK","JINDALSAW","JSL","JINDALSTEL","JIOFIN","JUBLFOOD","JUBLINGREA","JUBLPHARMA","JWL","JYOTHYLAB","JYOTICNC","KPRMILL","KEI","KPITTECH","KSB","KAJARIACER","KPIL","KALYANKJIL","KARURVYSYA","KAYNES","KEC","KFINTECH","KIRLOSBROS","KIRLOSENG","KOTAKBANK","KIMS","LTF","LTTS","LICHSGFIN","LTFOODS","LTM","LT","LATENTVIEW","LAURUSLABS","THELEELA","LEMONTREE","LICI","LINDEINDIA","LLOYDSME","LODHA","LUPIN","MMTC","MRF","MGL","MAHSCOOTER","MAHSEAMLES","M&MFIN","M&M","MANAPPURAM","MRPL","MANKIND","MARICO","MARUTI","MFSL","MAXHEALTH","MAZDOCK","METROPOLIS","MINDACORP","MSUMI","MOTILALOFS","MPHASIS","MCX","MUTHOOTFIN","NATCOPHARM","NBCC","NCC","NHPC","NLCINDIA","NMDC","NSLNISP","NTPCGREEN","NTPC","NH","NATIONALUM","NAVA","NAVINFLUOR","NESTLEIND","NETWEB","NEULANDLAB","NEWGEN","NAM-INDIA","NIVABUPA","NUVAMA","NUVOCO","OBEROIRLTY","ONGC","OIL","OLAELEC","OLECTRA","PAYTM","ONESOURCE","OFSS","POLICYBZR","PCBL","PGEL","PIIND","PNBHOUSING","PTCIL","PVRINOX","PAGEIND","PATANJALI","PERSISTENT","PETRONET","PFIZER","PHOENIXLTD","PIDILITIND","PPLPHARMA","POLYMED","POLYCAB","POONAWALLA","PFC","POWERGRID","PRAJIND","PREMIERENE","PRESTIGE","PGHH","PNB","RRKABEL","RBLBANK","RECLTD","RHIM","RITES","RADICO","RVNL","RAILTEL","RAINBOW","RKFORGE","RCF","REDINGTON","RELIANCE","RELINFRA","RPOWER","SBFC","SBICARD","SBILIFE","SJVN","SRF","SAGILITY","SAILIFE","SAMMAANCAP","MOTHERSON","SAPPHIRE","SARDAEN","SAREGAMA","SCHAEFFLER","SCHNEIDER","SCI","SHREECEM","SHRIRAMFIN","SHYAMMETL","ENRIN","SIEMENS","SIGNATURE","SOBHA","SOLARINDS","SONACOMS","SONATSOFTW","STARHEALTH","SBIN","SAIL","SUMICHEM","SUNPHARMA","SUNTV","SUNDARMFIN","SUNDRMFAST","SUPREMEIND","SUZLON","SWANCORP","SWIGGY","SYNGENE","SYRMA","TBOTEK","TVSMOTOR","TATACHEM","TATACOMM","TCS","TATACONSUM","TATAELXSI","TATAINVEST","TMPV","TATAPOWER","TATASTEEL","TATATECH","TTML","TECHM","TECHNOE","TEJASNET","NIACL","RAMCOCEM","THERMAX","TIMKEN","TITAGARH","TITAN","TORNTPHARM","TORNTPOWER","TARIL","TRENT","TRIDENT","TRIVENI","TRITURBINE","TIINDIA","UCOBANK","UNOMINDA","UPL","UTIAMC","ULTRACEMCO","UNIONBANK","UBL","UNITDSPR","USHAMART","VGUARD","DBREALTY","VTL","VBL","MANYAVAR","VEDL","VENTIVE","VIJAYA","VMM","IDEA","VOLTAS","WAAREEENER","WELCORP","WELSPUNLIV","WHIRLPOOL","WIPRO","WOCKPHARMA","YESBANK","ZFCVINDIA","ZEEL","ZENTEC","ZENSARTECH","ZYDUSLIFE","ECLERX"];
+
+// ── AUTOCOMPLETE ─────────────────────────────────────────────
+var activeIdx = -1;
+
+function filterTickers(query) {
+  if (!query || query.length < 1) return [];
+  var q = query.toUpperCase();
+  var starts = [], contains = [];
+  for (var i = 0; i < NSE_TICKERS.length; i++) {
+    var t = NSE_TICKERS[i];
+    if (t === q) { starts.unshift(t); }
+    else if (t.indexOf(q) === 0) { starts.push(t); }
+    else if (t.indexOf(q) !== -1) { contains.push(t); }
+  }
+  return starts.concat(contains).slice(0, 8);
+}
+
+function showSuggestions(matches) {
+  var box = document.getElementById('suggestions');
+  activeIdx = -1;
+  if (!matches.length) { box.classList.remove('show'); box.innerHTML = ''; return; }
+  var html = '';
+  for (var i = 0; i < matches.length; i++) {
+    html += '<div class="suggestion-item" data-ticker="' + matches[i] + '" onclick="selectTicker(\'' + matches[i] + '\')">'
+      + '<span class="sug-ticker">' + matches[i] + '</span>'
+      + '<span class="sug-tag">NSE</span>'
+      + '</div>';
+  }
+  box.innerHTML = html;
+  box.classList.add('show');
+}
+
+function selectTicker(t) {
+  document.getElementById('ticker-input').value = t;
+  document.getElementById('suggestions').classList.remove('show');
+  analyze();
+}
+
+function hideSuggestions() {
+  setTimeout(function() {
+    document.getElementById('suggestions').classList.remove('show');
+  }, 150);
+}
+
+document.getElementById('ticker-input').addEventListener('input', function() {
+  showSuggestions(filterTickers(this.value));
+});
+
+document.getElementById('ticker-input').addEventListener('blur', hideSuggestions);
+
+document.getElementById('ticker-input').addEventListener('keydown', function(e) {
+  var box = document.getElementById('suggestions');
+  var items = box.querySelectorAll('.suggestion-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    items.forEach(function(el, i){ el.classList.toggle('active', i === activeIdx); });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIdx = Math.max(activeIdx - 1, -1);
+    items.forEach(function(el, i){ el.classList.toggle('active', i === activeIdx); });
+  } else if (e.key === 'Enter') {
+    if (activeIdx >= 0 && items[activeIdx]) {
+      selectTicker(items[activeIdx].getAttribute('data-ticker'));
+    } else {
+      box.classList.remove('show');
+      analyze();
+    }
+  } else if (e.key === 'Escape') {
+    box.classList.remove('show');
+  }
+});
+</script>
+</body>
+</html>
