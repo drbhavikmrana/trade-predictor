@@ -589,177 +589,62 @@ function fetchYahoo(ticker, callback) {
   var symbol = ticker.toUpperCase();
   if (symbol.indexOf('.') === -1) symbol = symbol + '.NS';
 
-  // Try direct Yahoo Finance endpoints (no proxy needed)
-  var endpoints = [
-    'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d&cors=true',
-    'https://query2.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d&cors=true',
-    'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol + '&cors=true'
-  ];
-
-  var attempt = 0;
-
   function parseChart(data) {
-    var result = data.chart.result[0];
-    var meta   = result.meta;
-    var quote  = result.indicators.quote[0];
-    var closes  = (quote.close  || []).filter(function(v){ return v != null; });
-    var volumes = (quote.volume || []).filter(function(v){ return v != null; });
-    var opens   = (quote.open   || []).filter(function(v){ return v != null; });
-    var highs   = (quote.high   || []).filter(function(v){ return v != null; });
-    var lows    = (quote.low    || []).filter(function(v){ return v != null; });
-    var close     = meta.regularMarketPrice || closes[closes.length-1];
-    var prevClose = meta.chartPreviousClose  || (closes.length>1 ? closes[closes.length-2] : close);
-    return {
-      close: close, open: opens.length ? opens[opens.length-1] : close,
-      high:  highs.length ? highs[highs.length-1] : close,
-      low:   lows.length  ? lows[lows.length-1]   : close,
-      prevClose: prevClose,
-      volume:   volumes.length ? volumes[volumes.length-1] : 0,
-      avgVolume: volumes.length > 1 ? volumes.reduce(function(a,b){return a+b;},0)/volumes.length : 0
-    };
+    var r = data.chart.result[0], m = r.meta, q = r.indicators.quote[0];
+    var cls  = (q.close  ||[]).filter(function(v){return v!=null;});
+    var vols = (q.volume ||[]).filter(function(v){return v!=null;});
+    var ops  = (q.open   ||[]).filter(function(v){return v!=null;});
+    var his  = (q.high   ||[]).filter(function(v){return v!=null;});
+    var los  = (q.low    ||[]).filter(function(v){return v!=null;});
+    var close     = m.regularMarketPrice || cls[cls.length-1];
+    var prevClose = m.chartPreviousClose  || (cls.length>1 ? cls[cls.length-2] : close);
+    return { close:close, open:ops.length?ops[ops.length-1]:close,
+             high:his.length?his[his.length-1]:close, low:los.length?los[los.length-1]:close,
+             prevClose:prevClose, volume:vols.length?vols[vols.length-1]:0,
+             avgVolume:vols.length>1?vols.reduce(function(a,b){return a+b;},0)/vols.length:0 };
   }
 
-  function parseQuote(data) {
-    var q = data.quoteResponse.result[0];
-    return {
-      close: q.regularMarketPrice, open: q.regularMarketOpen,
-      high:  q.regularMarketDayHigh, low: q.regularMarketDayLow,
-      prevClose: q.regularMarketPreviousClose,
-      volume: q.regularMarketVolume, avgVolume: q.averageDailyVolume3Month || q.regularMarketVolume
-    };
-  }
-
-  function tryNext() {
-    if (attempt >= endpoints.length) {
-      // Last resort: JSONP approach
-      tryJSONP(symbol, callback);
-      return;
-    }
-    var url      = endpoints[attempt];
-    var isQuote  = url.indexOf('/v7/') !== -1;
-    attempt++;
-
+  function xhrGet(url, raw, cb) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.timeout = 7000;
-    xhr.setRequestHeader('Accept', 'application/json');
-
+    xhr.timeout = 9000;
     xhr.onload = function() {
-      if (xhr.status === 200) {
-        try {
-          var data = JSON.parse(xhr.responseText);
-          var result = isQuote ? parseQuote(data) : parseChart(data);
-          callback(null, result);
-        } catch(e) {
-          console.warn('Endpoint ' + attempt + ' parse fail:', e.message);
-          tryNext();
-        }
-      } else {
-        console.warn('Endpoint ' + attempt + ' status:', xhr.status);
-        tryNext();
-      }
+      if (xhr.status === 200) cb(null, xhr.responseText, raw);
+      else cb('HTTP '+xhr.status);
     };
-    xhr.onerror   = function() { console.warn('Endpoint ' + attempt + ' error'); tryNext(); };
-    xhr.ontimeout = function() { console.warn('Endpoint ' + attempt + ' timeout'); tryNext(); };
+    xhr.onerror = function(){ cb('error'); };
+    xhr.ontimeout = function(){ cb('timeout'); };
     xhr.send();
   }
 
+  var yfChart1 = 'https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=5d';
+  var yfChart2 = 'https://query2.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=5d';
+
+  var proxies = [
+    { url: 'https://api.allorigins.win/get?url='+encodeURIComponent(yfChart1), raw: false },
+    { url: 'https://api.allorigins.win/get?url='+encodeURIComponent(yfChart2), raw: false },
+    { url: 'https://corsproxy.io/?'+encodeURIComponent(yfChart1), raw: true },
+    { url: 'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(yfChart1), raw: true },
+    { url: 'https://corsproxy.io/?'+encodeURIComponent(yfChart2), raw: true },
+    { url: 'https://thingproxy.freeboard.io/fetch/'+yfChart1, raw: true }
+  ];
+
+  var pi = 0;
+  function tryNext() {
+    if (pi >= proxies.length) { callback('All proxies failed', null); return; }
+    var p = proxies[pi++];
+    xhrGet(p.url, p.raw, function(err, text, isRaw) {
+      if (err) { console.warn('Proxy '+pi+' failed:', err); tryNext(); return; }
+      try {
+        var data = isRaw ? JSON.parse(text) : JSON.parse(JSON.parse(text).contents);
+        callback(null, parseChart(data));
+      } catch(e) { console.warn('Proxy '+pi+' parse error:', e.message); tryNext(); }
+    });
+  }
   tryNext();
 }
 
-// ── JSONP FALLBACK ────────────────────────────────────────────
-function tryJSONP(symbol, callback) {
-  var cbName = '_yf_cb_' + Date.now();
-  var script = document.createElement('script');
-  var done   = false;
-  var timer  = setTimeout(function() {
-    if (!done) {
-      done = true;
-      cleanup();
-      // Final fallback: try corsproxy with no-cors hint
-      tryCorsproxy(symbol, callback);
-    }
-  }, 6000);
-
-  window[cbName] = function(data) {
-    if (done) return;
-    done = true; cleanup();
-    try {
-      var q = data.quoteResponse.result[0];
-      callback(null, {
-        close: q.regularMarketPrice, open: q.regularMarketOpen,
-        high:  q.regularMarketDayHigh, low: q.regularMarketDayLow,
-        prevClose: q.regularMarketPreviousClose,
-        volume: q.regularMarketVolume, avgVolume: q.averageDailyVolume3Month || q.regularMarketVolume
-      });
-    } catch(e) { tryCorsproxy(symbol, callback); }
-  };
-
-  function cleanup() {
-    clearTimeout(timer);
-    delete window[cbName];
-    if (script.parentNode) script.parentNode.removeChild(script);
-  }
-
-  script.onerror = function() {
-    if (!done) { done = true; cleanup(); tryCorsproxy(symbol, callback); }
-  };
-  script.src = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol + '&callback=' + cbName;
-  document.head.appendChild(script);
-}
-
-// ── CORSPROXY FINAL ATTEMPT ───────────────────────────────────
-function tryCorsproxy(symbol, callback) {
-  var proxies = [
-    'https://api.allorigins.win/get?url=' + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d'),
-    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=5d'),
-    'https://corsproxy.io/?' + encodeURIComponent('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbol)
-  ];
-  var pi = 0;
-
-  function nextProxy() {
-    if (pi >= proxies.length) { callback('All methods failed', null); return; }
-    var url     = proxies[pi];
-    var isRaw   = url.indexOf('corsproxy.io') !== -1;
-    var isQuote = url.indexOf('/v7/') !== -1;
-    pi++;
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.timeout = 8000;
-    xhr.onload = function() {
-      if (xhr.status === 200) {
-        try {
-          var raw  = xhr.responseText;
-          var data = isRaw ? JSON.parse(raw) : JSON.parse(JSON.parse(raw).contents || raw);
-          var result;
-          if (isQuote) {
-            var q = data.quoteResponse.result[0];
-            result = { close:q.regularMarketPrice, open:q.regularMarketOpen,
-              high:q.regularMarketDayHigh, low:q.regularMarketDayLow,
-              prevClose:q.regularMarketPreviousClose,
-              volume:q.regularMarketVolume, avgVolume:q.averageDailyVolume3Month||q.regularMarketVolume };
-          } else {
-            var r = data.chart.result[0], m = r.meta, qt = r.indicators.quote[0];
-            var cls = (qt.close||[]).filter(function(v){return v!=null;});
-            var vols= (qt.volume||[]).filter(function(v){return v!=null;});
-            result = { close:m.regularMarketPrice||cls[cls.length-1],
-              open:(qt.open||[])[qt.open.length-1]||m.regularMarketPrice,
-              high:(qt.high||[])[qt.high.length-1]||m.regularMarketPrice,
-              low:(qt.low||[])[qt.low.length-1]||m.regularMarketPrice,
-              prevClose:m.chartPreviousClose||(cls.length>1?cls[cls.length-2]:cls[0]),
-              volume:vols[vols.length-1]||0,
-              avgVolume:vols.length>1?vols.reduce(function(a,b){return a+b;},0)/vols.length:0 };
-          }
-          callback(null, result);
-        } catch(e) { nextProxy(); }
-      } else { nextProxy(); }
-    };
-    xhr.onerror = xhr.ontimeout = function(){ nextProxy(); };
-    xhr.send();
-  }
-  nextProxy();
-}
-
+// ── ANALYZE ──
 // ── ANALYZE ──────────────────────────────────────────────────
 function analyze(silent) {
   if (analyzing) return;
@@ -807,7 +692,7 @@ function analyze(silent) {
         if (suggestion) {
           msg += suggestion;
         } else {
-          msg += ' This may be a CORS issue with local files. <b>Host the app on Netlify</b> for live prices to work reliably.';
+          msg += ' Please check the ticker symbol or try again in a moment.';
         }
         showErrorHTML(msg);
       }
