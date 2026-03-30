@@ -3,113 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Wealth Planner | Dr. Bhavik Rana</title>
+    <title>Wealth Architect Pro | Dr. Bhavik Rana</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
-        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
-        input[type="number"] { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 600; }
-        .label-text { font-size: 0.75rem; font-weight: 700; color: #4b5563; text-transform: uppercase; margin-bottom: 4px; display: block; }
-    </style>
 </head>
-<body class="p-4 md:p-10">
+<body class="bg-gray-100 p-4 md:p-10 font-sans text-slate-800">
     <div class="max-w-6xl mx-auto">
-        <header class="mb-8 border-b pb-6 border-gray-300">
-            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Wealth Architect <span class="text-emerald-600">Pro</span></h1>
-            <p class="text-slate-500 font-medium">Goal-Based & Retirement Planning</p>
+        <header class="mb-8 border-b-2 border-slate-300 pb-4">
+            <h1 class="text-3xl font-black uppercase tracking-tight">Wealth Architect <span class="text-emerald-600">Pro</span></h1>
+            <p class="text-slate-500 font-bold">Comprehensive Financial Planning Suite</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-4 space-y-6">
-                <div class="card p-6">
-                    <h2 class="text-lg font-bold mb-4 flex items-center"><span class="w-2 h-6 bg-emerald-500 mr-2 rounded"></span>Current Assets</h2>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                    <h2 class="text-sm font-black uppercase text-slate-400 mb-4 tracking-widest">1. Accumulation Phase</h2>
                     <div class="space-y-4">
-                        <div><label class="label-text">Lumpsum (₹)</label><input id="lumpsum" type="number" value="500000" oninput="calculate()"></div>
-                        <div><label class="label-text">Monthly SIP (₹)</label><input id="sip" type="number" value="25000" oninput="calculate()"></div>
+                        <div><label class="block text-xs font-bold mb-1">Lumpsum (₹)</label><input id="lumpsum" type="number" value="500000" oninput="calculate()" class="w-full p-2 border-2 rounded font-bold focus:border-emerald-500 outline-none"></div>
+                        <div><label class="block text-xs font-bold mb-1">Monthly SIP (₹)</label><input id="sip" type="number" value="25000" oninput="calculate()" class="w-full p-2 border-2 rounded font-bold focus:border-emerald-500 outline-none"></div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="label-text">Return %</label><input id="rate" type="number" value="12" oninput="calculate()"></div>
-                            <div><label class="label-text">Inflation %</label><input id="inflation" type="number" value="6" oninput="calculate()"></div>
+                            <div><label class="block text-xs font-bold mb-1">Return %</label><input id="rate" type="number" value="12" step="0.5" oninput="calculate()" class="w-full p-2 border-2 rounded font-bold"></div>
+                            <div><label class="block text-xs font-bold mb-1">Inflation %</label><input id="inflation" type="number" value="6" step="0.5" oninput="calculate()" class="w-full p-2 border-2 rounded font-bold"></div>
                         </div>
                         <div>
-                            <label class="label-text">Tenure: <span id="yearVal" class="text-emerald-600 font-bold">15</span> Years</label>
-                            <input id="years" type="range" min="1" max="40" value="15" class="w-full accent-emerald-600" oninput="updateYears(this.value)">
+                            <label class="block text-xs font-bold mb-1 uppercase text-emerald-600">Tenure: <span id="yearVal">15</span> Years</label>
+                            <input id="years" type="range" min="1" max="40" value="15" oninput="updateYears(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
                         </div>
                     </div>
                 </div>
 
-                <div class="card p-6 bg-blue-50 border-blue-200">
-                    <h2 class="text-lg font-bold mb-4 flex items-center text-blue-900"><span class="w-2 h-6 bg-blue-600 mr-2 rounded"></span>Goal Target</h2>
-                    <div>
-                        <label class="label-text text-blue-700">Target Amount (₹)</label>
-                        <input id="goalAmount" type="number" value="10000000" oninput="calculate()" class="border-blue-300 focus:ring-blue-500">
-                        <p class="text-[10px] mt-1 text-blue-600 font-bold uppercase">SIP Required to reach this</p>
+                <div class="bg-blue-900 p-6 rounded-xl shadow-md text-white">
+                    <h2 class="text-sm font-black uppercase opacity-60 mb-4 tracking-widest text-blue-100">2. Goal Targeting</h2>
+                    <label class="block text-xs font-bold mb-1">Target Corpus (₹)</label>
+                    <input id="goalAmount" type="number" value="10000000" oninput="calculate()" class="w-full p-2 rounded font-bold text-slate-900 outline-none">
+                    <div class="mt-4 p-3 bg-blue-800 rounded border border-blue-700">
+                        <p class="text-[10px] font-bold uppercase opacity-70">Monthly SIP Needed:</p>
+                        <p id="reqSipDisplay" class="text-xl font-black">₹0</p>
                     </div>
                 </div>
             </div>
 
             <div class="lg:col-span-8 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="card p-5 border-t-4 border-emerald-500">
-                        <p class="label-text">Projected Corpus</p>
-                        <h3 id="fvDisplay" class="text-2xl font-black text-emerald-700">₹0</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-emerald-500">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Estimated Future Value</p>
+                        <h3 id="fvDisplay" class="text-4xl font-black text-emerald-700">₹0</h3>
+                        <p id="fvWords" class="text-[10px] font-bold text-slate-500 mt-2 italic uppercase"></p>
                     </div>
-                    <div class="card p-5 border-t-4 border-slate-800">
-                        <p class="label-text">Real Value today</p>
-                        <h3 id="realFvDisplay" class="text-2xl font-black text-slate-800">₹0</h3>
-                    </div>
-                    <div class="card p-5 border-t-4 border-blue-600">
-                        <p class="label-text">Required SIP</p>
-                        <h3 id="reqSipDisplay" class="text-2xl font-black text-blue-700">₹0</h3>
+                    <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-slate-800">
+                        <p class="text-xs font-bold text-slate-400 uppercase">Real Value (Today's Power)</p>
+                        <h3 id="realFvDisplay" class="text-4xl font-black text-slate-800">₹0</h3>
                     </div>
                 </div>
 
-                <div class="card p-6">
-                    <h3 class="text-lg font-bold text-slate-800 mb-6 uppercase">Portfolio Distribution</h3>
-                    <div class="relative h-[300px] w-full"><canvas id="wealthChart"></canvas></div>
+                <div class="bg-white p-8 rounded-xl shadow-md border border-slate-200 h-[400px]">
+                    <h3 class="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">Portfolio Breakdown</h3>
+                    <div class="relative h-64"><canvas id="wealthChart"></canvas></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let wealthChart;
-        function updateYears(val) { document.getElementById('yearVal').innerText = val; calculate(); }
+        let wealthChart = null;
+
+        function updateYears(val) {
+            document.getElementById('yearVal').innerText = val;
+            calculate();
+        }
 
         function calculate() {
-            const P = parseFloat(document.getElementById('lumpsum').value) || 0;
-            const PMT = parseFloat(document.getElementById('sip').value) || 0;
-            const annRate = parseFloat(document.getElementById('rate').value) / 100;
-            const inflation = parseFloat(document.getElementById('inflation').value) / 100;
-            const nYears = parseFloat(document.getElementById('years').value);
-            const goal = parseFloat(document.getElementById('goalAmount').value) || 0;
-            const r = annRate / 12;
-            const nMonths = nYears * 12;
+            try {
+                const P = parseFloat(document.getElementById('lumpsum').value) || 0;
+                const PMT = parseFloat(document.getElementById('sip').value) || 0;
+                const annRate = parseFloat(document.getElementById('rate').value) || 0;
+                const inflation = parseFloat(document.getElementById('inflation').value) || 0;
+                const nYears = parseFloat(document.getElementById('years').value) || 1;
+                const goal = parseFloat(document.getElementById('goalAmount').value) || 0;
 
-            // 1. Future Value Logic
-            const fvLumpsum = P * Math.pow(1 + r, nMonths);
-            const fvSip = PMT * ((Math.pow(1 + r, nMonths) - 1) / r) * (1 + r);
-            const totalFv = fvLumpsum + fvSip;
-            const realFv = totalFv / Math.pow(1 + inflation, nYears);
+                const r = (annRate / 100) / 12;
+                const i = (inflation / 100);
+                const nMonths = nYears * 12;
 
-            // 2. Goal Back-calculation Logic
-            const denom = ((Math.pow(1 + r, nMonths) - 1) / r) * (1 + r);
-            const reqSip = (goal - fvLumpsum) / denom;
+                // 1. Future Value Calculation
+                let totalFv = 0;
+                if (r === 0) {
+                    totalFv = P + (PMT * nMonths);
+                } else {
+                    const fvLumpsum = P * Math.pow(1 + r, nMonths);
+                    const fvSip = PMT * ((Math.pow(1 + r, nMonths) - 1) / r) * (1 + r);
+                    totalFv = fvLumpsum + fvSip;
+                }
 
-            // 3. Update UI
-            document.getElementById('fvDisplay').innerText = "₹" + Math.round(totalFv).toLocaleString('en-IN');
-            document.getElementById('realFvDisplay').innerText = "₹" + Math.round(realFv).toLocaleString('en-IN');
-            document.getElementById('reqSipDisplay').innerText = "₹" + (reqSip > 0 ? Math.round(reqSip).toLocaleString('en-IN') : "0");
+                // 2. Real Value
+                const realFv = totalFv / Math.pow(1 + i, nYears);
 
-            updateChart(P + (PMT * nMonths), totalFv - (P + (PMT * nMonths)));
+                // 3. Required SIP Calculation
+                let reqSipValue = 0;
+                if (r > 0) {
+                    const fvLumpsumAtGoal = P * Math.pow(1 + r, nMonths);
+                    const denom = ((Math.pow(1 + r, nMonths) - 1) / r) * (1 + r);
+                    reqSipValue = (goal - fvLumpsumAtGoal) / denom;
+                }
+
+                // 4. Update UI
+                document.getElementById('fvDisplay').innerText = "₹" + Math.round(totalFv).toLocaleString('en-IN');
+                document.getElementById('realFvDisplay').innerText = "₹" + Math.round(realFv).toLocaleString('en-IN');
+                document.getElementById('reqSipDisplay').innerText = "₹" + (reqSipValue > 0 ? Math.round(reqSipValue).toLocaleString('en-IN') : "0");
+                
+                const crVal = (totalFv / 10000000).toFixed(2);
+                document.getElementById('fvWords').innerText = `Approximately ${crVal} Crores`;
+
+                const totalInvested = P + (PMT * nMonths);
+                const totalGains = Math.max(0, totalFv - totalInvested);
+                updateChart(totalInvested, totalGains);
+
+            } catch (err) {
+                console.error("Calculation Error:", err);
+            }
         }
 
         function updateChart(inv, gain) {
             const ctx = document.getElementById('wealthChart').getContext('2d');
-            if (wealthChart) wealthChart.destroy();
+            if (wealthChart) {
+                wealthChart.destroy();
+            }
             wealthChart = new Chart(ctx, {
-                type: 'doughnut',
+                type: 'pie',
                 data: {
-                    labels: ['Invested', 'Gains'],
-                    datasets: [{ data: [inv,
+                    labels: ['Invested Capital', 'Wealth Gain'],
+                    datasets: [{
+                        data: [inv, gain],
+                        backgroundColor: ['#cbd5e1', '#10b981'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 15, font: { weight: 'bold' } } } }
+                }
+            });
+        }
+
+        // Run once on load
+        window.onload = calculate;
+    </script>
+</body>
+</html>
