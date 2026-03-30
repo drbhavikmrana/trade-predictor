@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Planning Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 md:p-10">
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+        <div class="bg-slate-800 p-6">
+            <h1 class="text-2xl font-bold text-white text-center">Comprehensive Wealth Planner</h1>
+        </div>
+
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold border-b pb-2 text-gray-700">Investment Inputs</h2>
+                <div><label class="text-sm font-medium">Lumpsum Amount (₹)</label><input id="lumpsum" type="number" value="100000" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div><label class="text-sm font-medium">Monthly SIP (₹)</label><input id="sip" type="number" value="25000" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div><label class="text-sm font-medium">Expected Return (%)</label><input id="rate" type="number" value="12" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div><label class="text-sm font-medium">Inflation (%)</label><input id="inflation" type="number" value="6" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div><label class="text-sm font-medium">Tenure (Years)</label><input id="years" type="number" value="15" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div><label class="text-sm font-medium">Desired SWP / Month (₹)</label><input id="swpAmount" type="number" value="50000" class="w-full p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <button onclick="calculateAll()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-200 shadow-md">CALCULATE PROJECTIONS</button>
+            </div>
+
+            <div class="flex flex-col space-y-4">
+                <h2 class="text-lg font-semibold border-b pb-2 text-gray-700">Financial Forecast</h2>
+                <div class="bg-green-50 border border-green-200 p-4 rounded-xl">
+                    <p class="text-sm text-green-800">Total Future Value</p>
+                    <p id="fvDisplay" class="text-3xl font-bold text-green-700">₹0</p>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                    <p class="text-sm text-blue-800 font-medium">In Today's Purchasing Power (Real Value)</p>
+                    <p id="realFvDisplay" class="text-2xl font-bold text-blue-700">₹0</p>
+                </div>
+                <div class="bg-orange-50 border border-orange-200 p-4 rounded-xl">
+                    <p class="text-sm text-orange-800 font-medium">Corpus Longevity (SWP)</p>
+                    <p id="swpDisplay" class="text-2xl font-bold text-orange-700">Calculated on Click</p>
+                </div>
+                <p class="text-[10px] text-gray-400 italic mt-auto leading-tight">*Calculations assume monthly compounding and payments at the start of the period. Returns are pre-tax.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calculateAll() {
+            const P = parseFloat(document.getElementById('lumpsum').value) || 0;
+            const PMT = parseFloat(document.getElementById('sip').value) || 0;
+            const annualRate = parseFloat(document.getElementById('rate').value) / 100;
+            const inflation = parseFloat(document.getElementById('inflation').value) / 100;
+            const nYears = parseFloat(document.getElementById('years').value);
+            const nMonths = nYears * 12;
+            const r = annualRate / 12;
+
+            // 1. Future Value
+            const fvLumpsum = P * Math.pow(1 + r, nMonths);
+            const fvSip = PMT * ((Math.pow(1 + r, nMonths) - 1) / r) * (1 + r);
+            const totalFv = fvLumpsum + fvSip;
+
+            // 2. Real Value
+            const realFv = totalFv / Math.pow(1 + inflation, nYears);
+
+            // 3. SWP Logic
+            const monthlyWithdrawal = parseFloat(document.getElementById('swpAmount').value) || 0;
+            let swpText;
+            if (monthlyWithdrawal === 0) {
+                swpText = "No SWP entered";
+            } else if (monthlyWithdrawal <= (totalFv * r)) {
+                swpText = "Infinite (Return > Payout)";
+            } else {
+                const monthsToExhaust = Math.log(monthlyWithdrawal / (monthlyWithdrawal - (totalFv * r))) / Math.log(1 + r);
+                swpText = (monthsToExhaust / 12).toFixed(1) + " Years";
+            }
+
+            // UI Update
+            document.getElementById('fvDisplay').innerText = "₹" + Math.round(totalFv).toLocaleString('en-IN');
+            document.getElementById('realFvDisplay').innerText = "₹" + Math.round(realFv).toLocaleString('en-IN');
+            document.getElementById('swpDisplay').innerText = swpText;
+        }
+        // Run once on load
+        calculateAll();
+    </script>
+</body>
+</html>
